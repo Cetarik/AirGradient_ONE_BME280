@@ -45,6 +45,9 @@ public:
   struct Measures {
     float temperature[2];
     float humidity[2];
+    float bme280_temperature;
+    float bme280_humidity;
+    float bme280_pressure;
     float co2;
     float tvoc; // Index value
     float tvoc_raw;
