@@ -49,6 +49,9 @@ CC BY-SA 4.0 Attribution-ShareAlike 4.0 International License
 #include <cstdint>
 #include <string>
 
+#include <Adafruit_BME280.h>
+#include <Adafruit_Sensor.h>
+
 #include "Libraries/airgradient-client/src/agSerial.h"
 #include "Libraries/airgradient-client/src/cellularModule.h"
 #include "Libraries/airgradient-client/src/cellularModuleA7672xx.h"
@@ -121,6 +124,10 @@ static bool ledBarButtonTest = false;
 static String fwNewVersion;
 static int lastCellSignalQuality = 99; // CSQ
 
+static Adafruit_BME280 bme280;
+static Adafruit_BME280 bme280Probe77;
+static bool hasBme280 = false;
+
 // Default value is 0, indicate its not started yet
 // In minutes
 uint32_t agCeClientProblemDetectedTime = 0;
@@ -157,6 +164,9 @@ static void restartIfCeClientIssueOverTwoHours();
 static void networkSignalCheck();
 static void networkingTask(void *args);
 
+static bool bme280Init(void);
+static void bme280Update(void);
+
 AgSchedule dispLedSchedule(DISP_UPDATE_INTERVAL, updateDisplayAndLedBar);
 AgSchedule configSchedule(WIFI_SERVER_CONFIG_SYNC_INTERVAL, configurationUpdateSchedule);
 AgSchedule transmissionSchedule(WIFI_TRANSMISSION_INTERVAL, sendDataToServer);
@@ -164,6 +174,7 @@ AgSchedule measurementSchedule(WIFI_MEASUREMENT_INTERVAL, newMeasurementCycle);
 AgSchedule co2Schedule(SENSOR_CO2_UPDATE_INTERVAL, co2Update);
 AgSchedule pmsSchedule(SENSOR_PM_UPDATE_INTERVAL, updatePm);
 AgSchedule tempHumSchedule(SENSOR_TEMP_HUM_UPDATE_INTERVAL, tempHumUpdate);
+AgSchedule bme280Schedule(SENSOR_TEMP_HUM_UPDATE_INTERVAL, bme280Update);
 AgSchedule tvocSchedule(SENSOR_TVOC_UPDATE_INTERVAL, updateTvoc);
 AgSchedule watchdogFeedSchedule(60000, wdgFeedUpdate);
 AgSchedule checkForUpdateSchedule(FIRMWARE_CHECK_FOR_UPDATE_MS, checkForFirmwareUpdate);
@@ -337,6 +348,9 @@ void loop() {
   }
   if (configuration.hasSensorSGP) {
     tvocSchedule.run();
+  }
+    if (hasBme280) {
+    bme280Schedule.run();
   }
   if (ag->isOne()) {
     if (configuration.hasSensorPMS1) {
@@ -554,6 +568,20 @@ static bool sgp41Init(void) {
     configuration.hasSensorSGP = false;
   }
   return false;
+}
+
+static bool bme280Init(void) {
+  bool ok76 = bme280.begin(0x76, &Wire);
+  Serial.printf("BME280 begin(0x76): %s\n", ok76 ? "OK" : "FAIL");
+
+  // Requirement: try 0x77 too and print result
+  bool ok77 = bme280Probe77.begin(0x77, &Wire);
+  Serial.printf("BME280 begin(0x77): %s\n", ok77 ? "OK" : "FAIL");
+
+  hasBme280 = ok76;
+  measurements.setHasBME280(hasBme280);
+
+  return hasBme280;
 }
 
 void checkForFirmwareUpdate(void) {
@@ -800,7 +828,12 @@ static void oneIndoorInit(void) {
   if (sgp41Init() == false) {
     dispSensorNotFound("SGP41");
   }
-
+  
+  // Init BME280 (optional additional sensor)
+  if (!bme280Init()) {
+    Serial.println("BME280 sensor not found");
+  }
+  
   /** INit SHT */
   if (ag->sht.begin(Wire) == false) {
     Serial.println("SHTx sensor not found");
@@ -822,6 +855,7 @@ static void oneIndoorInit(void) {
 
     dispSensorNotFound("PMS");
   }
+
 }
 static void openAirInit(void) {
   configuration.hasSensorSHT = false;
@@ -872,7 +906,10 @@ static void openAirInit(void) {
       fwMode = FW_MODE_O_1PS;
     }
   }
-
+  // Init BME280 (optional additional sensor)
+  if (!bme280Init()) {
+    Serial.println("BME280 sensor not found");
+  }
   /** Attempt to detect PM sensors */
   if (fwMode == FW_MODE_O_1PST) {
     bool pmInitSuccess = false;
