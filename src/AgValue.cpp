@@ -40,6 +40,9 @@ Measurements::Measurements(Configuration &config) : config(config) {
   _temperature[1].update.avg = utils::getInvalidTemperature();
   _humidity[0].update.avg = utils::getInvalidHumidity();
   _humidity[1].update.avg = utils::getInvalidHumidity();
+  _bme280_temperature.update.avg = utils::getInvalidTemperature();
+  _bme280_humidity.update.avg = utils::getInvalidHumidity();
+  _bme280_pressure.update.avg = utils::getInvalidPressure();
   _co2.update.avg = utils::getInvalidCO2();
   _tvoc.update.avg = utils::getInvalidVOC();
   _tvoc_raw.update.avg = utils::getInvalidVOC();
@@ -79,6 +82,10 @@ void Measurements::setAirGradient(AirGradient *ag) { this->ag = ag; }
 
 void Measurements::setSatellites(AgSatellites *satellites) { this->satellites_ = satellites; }
 
+void Measurements::setHasBME280(bool has) {
+  _hasBME280 = has;
+}
+
 void Measurements::printCurrentAverage() {
   Serial.println();
   if (config.hasSensorS8) {
@@ -101,7 +108,25 @@ void Measurements::printCurrentAverage() {
       Serial.printf("Relative Humidity = -\n");
     }
   }
+  if (_hasBME280) {
+    if (utils::isValidTemperature(_bme280_temperature.update.avg)) {
+      Serial.printf("BME280 Temperature = %.2f C\n", _bme280_temperature.update.avg);
+    } else {
+      Serial.printf("BME280 Temperature = -\n");
+    }
 
+    if (utils::isValidHumidity(_bme280_humidity.update.avg)) {
+      Serial.printf("BME280 Relative Humidity = %.2f\n", _bme280_humidity.update.avg);
+    } else {
+      Serial.printf("BME280 Relative Humidity = -\n");
+    }
+
+    if (utils::isValidPressure(_bme280_pressure.update.avg)) {
+      Serial.printf("BME280 Pressure = %.2f\n", _bme280_pressure.update.avg);
+    } else {
+      Serial.printf("BME280 Pressure = -\n");
+    }
+  }
   if (config.hasSensorSGP) {
     if (utils::isValidVOC(_tvoc.update.avg)) {
       Serial.printf("TVOC Index = %.1f\n", _tvoc.update.avg);
@@ -168,6 +193,15 @@ void Measurements::maxPeriod(MeasurementType type, int max) {
   case Humidity:
     _humidity[0].update.max = max;
     _humidity[1].update.max = max;
+    break;
+  case BME280Temperature:
+    _bme280_temperature.update.max = max;
+    break;
+  case BME280Humidity:
+    _bme280_humidity.update.max = max;
+    break;
+  case BME280Pressure:
+    _bme280_pressure.update.max = max;
     break;
   case CO2:
     _co2.update.max = max;
@@ -386,6 +420,18 @@ bool Measurements::update(MeasurementType type, float val, int ch) {
     temporary = &_humidity[ch];
     invalidValue = utils::getInvalidHumidity();
     break;
+  case BME280Temperature:
+    temporary = &_bme280_temperature;
+    invalidValue = utils::getInvalidTemperature();
+    break;
+  case BME280Humidity:
+    temporary = &_bme280_humidity;
+    invalidValue = utils::getInvalidHumidity();
+    break;
+  case BME280Pressure:
+    temporary = &_bme280_pressure;
+    invalidValue = utils::getInvalidPressure();
+    break;
   default:
     break;
   }
@@ -595,6 +641,15 @@ String Measurements::measurementTypeStr(MeasurementType type) {
     break;
   case Humidity:
     str = "Humidity";
+    break;
+  case BME280Temperature:
+    str = "BME280Temperature";
+    break;
+  case BME280Humidity:
+    str = "BME280Humidity";
+    break;
+  case BME280Pressure:
+    str = "BME280Pressure";
     break;
   case CO2:
     str = "CO2";
@@ -1090,6 +1145,18 @@ String Measurements::toString(bool localServer, AgFirmwareMode fwMode, int rssi)
     }
     if (utils::isValidNOx(_nox_raw.update.avg)) {
       root[json_prop_noxRaw] = ag->round2(_nox_raw.update.avg);
+    }
+  }
+    // BME280 (additional sensor, independent from original temp/hum sources)
+  if (_hasBME280) {
+    if (utils::isValidTemperature(_bme280_temperature.update.avg)) {
+      root["BME280_temp"] = ag->round2(_bme280_temperature.update.avg);
+    }
+    if (utils::isValidHumidity(_bme280_humidity.update.avg)) {
+      root["BME280_humidity"] = ag->round2(_bme280_humidity.update.avg);
+    }
+    if (utils::isValidPressure(_bme280_pressure.update.avg)) {
+      root["BME280_pressure"] = ag->round2(_bme280_pressure.update.avg);
     }
   }
 
