@@ -24,6 +24,9 @@
 #define json_prop_tempCompensated "atmpCompensated"
 #define json_prop_rhum "rhum"
 #define json_prop_rhumCompensated "rhumCompensated"
+#define json_prop_bme280_temp "bme280_temperature"
+#define json_prop_bme280_hum "bme280_humidity"
+#define json_prop_bme280_pres "bme280_pressure"
 #define json_prop_tvoc "tvocIndex"
 #define json_prop_tvocRaw "tvocRaw"
 #define json_prop_nox "noxIndex"
@@ -1169,18 +1172,18 @@ String Measurements::toString(bool localServer, AgFirmwareMode fwMode, int rssi)
       root[json_prop_noxRaw] = ag->round2(_nox_raw.update.avg);
     }
   }
-    // BME280 (additional sensor, independent from original temp/hum sources)
-  if (_hasBME280) {
-    if (utils::isValidTemperature(_bme280_temperature.update.avg)) {
-      root["BME280_temp"] = ag->round2(_bme280_temperature.update.avg);
-    }
-    if (utils::isValidHumidity(_bme280_humidity.update.avg)) {
-      root["BME280_humidity"] = ag->round2(_bme280_humidity.update.avg);
-    }
-    if (utils::isValidPressure(_bme280_pressure.update.avg)) {
-      root["BME280_pressure"] = ag->round2(_bme280_pressure.update.avg);
-    }
+// BME280 (additional sensor, independent from original temp/hum sources)
+if (_hasBME280) {
+  if (utils::isValidTemperature(_bme280_temperature.update.avg)) {
+    root[json_prop_bme280_temp] = ag->round2(_bme280_temperature.update.avg);
   }
+  if (utils::isValidHumidity(_bme280_humidity.update.avg)) {
+   root[json_prop_bme280_hum]  = ag->round2(_bme280_humidity.update.avg);
+  }
+  if (utils::isValidPressure(_bme280_pressure.update.avg)) {
+    root[json_prop_bme280_pres] = ag->round2(_bme280_pressure.update.avg);
+  }
+}
 
   root["boot"] = _bootCount;
   root["bootCount"] = _bootCount;
