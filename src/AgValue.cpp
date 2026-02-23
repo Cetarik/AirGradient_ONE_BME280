@@ -555,6 +555,15 @@ float Measurements::getFloat(MeasurementType type, int ch) {
   case Humidity:
     temporary = &_humidity[ch];
     break;
+  case BME280Temperature:
+    temporary = &_bme280_temperature;
+    break;
+  case BME280Humidity:
+    temporary = &_bme280_humidity;
+    break;
+  case BME280Pressure:
+    temporary = &_bme280_pressure;
+    break;
   default:
     break;
   }
@@ -604,6 +613,15 @@ float Measurements::getAverage(MeasurementType type, int ch) {
   case Humidity:
     measurementAverage = _humidity[ch].update.avg;
     break;
+  case BME280Temperature:
+    measurementAverage = _bme280_temperature.update.avg;
+    break;
+  case BME280Humidity:
+    measurementAverage = _bme280_humidity.update.avg;
+    break;
+  case BME280Pressure:
+    measurementAverage = _bme280_pressure.update.avg;
+    break;  
   default:
     // Invalidate, measurements type not handled
     undefined = true;
@@ -915,6 +933,10 @@ Measurements::Measures Measurements::getMeasures() {
   mc.humidity[0] = _humidity[0].update.avg;
   mc.temperature[1] = _temperature[1].update.avg;
   mc.humidity[1] = _humidity[1].update.avg;
+  // BME280 Temperature & Humidity & Pressure
+  mc.bme280_temperature = _bme280_temperature.update.avg;
+  mc.bme280_humidity = _bme280_humidity.update.avg;
+  mc.bme280_pressure = _bme280_pressure.update.avg;
   // PM atmospheric
   mc.pm_01[0] = _pm_01[0].update.avg;
   mc.pm_25[0] = _pm_25[0].update.avg;
