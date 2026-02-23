@@ -70,6 +70,8 @@ public:
   void setAirGradient(AirGradient *ag);
   void setSatellites(AgSatellites *satellites);
 
+  void setHasBME280(bool has);
+
   // Enumeration for every AG measurements
   enum MeasurementType {
     Temperature,
@@ -91,6 +93,9 @@ public:
     PM25_PC, // Particle 2.5 count
     PM5_PC,  // Particle 5.0 count
     PM10_PC, // Particle 10 count
+    BME280Temperature,
+    BME280Humidity,
+    BME280Pressure,
   };
 
   void printCurrentAverage();
@@ -211,6 +216,10 @@ private:
   // Some declared as an array (channel), because FW_MODE_O_1PPx has two PMS5003T
   FloatValue _temperature[2];
   FloatValue _humidity[2];
+  bool _hasBME280 = false;
+  FloatValue _bme280_temperature;
+  FloatValue _bme280_humidity;
+  FloatValue _bme280_pressure;
   IntegerValue _co2;
   IntegerValue _tvoc; // Index value
   IntegerValue _tvoc_raw;
