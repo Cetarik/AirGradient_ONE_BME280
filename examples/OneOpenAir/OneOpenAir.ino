@@ -1264,26 +1264,21 @@ static void updateDisplayAndLedBar(void) {
 static void bme280Update(void) {
   if (!hasBme280 || activeBme280 == nullptr) return;
 
-  // BME280 umí teplotu, vlhkost, tlak
   float t = activeBme280->readTemperature();       // °C
   float h = activeBme280->readHumidity();          // %RH
   float p = activeBme280->readPressure() / 100.0f; // hPa
 
-  // Základní sanity check (aby ses nezahltil nesmysly při odpojení)
   if (isnan(t) || isnan(h) || isnan(p)) {
     Serial.println("BME280 read failed");
     return;
   }
 
-  // Tady záleží, jaké enumy má tvůj Measurements.
-  // Pokud máš jen Temperature/Humidity, update jen ty:
-  measurements.update(Measurements::Temperature, t);
-  measurements.update(Measurements::Humidity, h);
+  // NOVĚ: paralelní hodnoty (NEpřepisují původní Temperature/Humidity)
+  measurements.update(Measurements::BME280Temperature, t);
+  measurements.update(Measurements::BME280Humidity, h);
+  measurements.update(Measurements::BME280Pressure, p);
 
-  // Pokud máš v Measurements i tlak, můžeš přidat (jen pokud existuje!):
-  // measurements.update(Measurements::Pressure, p);
-
-  // A pokud chceš, můžeš tím i kompenzovat SGP41:
+  // Kompenzace SGP41 může pořád používat BME, to nevadí:
   if (configuration.hasSensorSGP) {
     ag->sgp41.setCompensationTemperatureHumidity(t, h);
   }
@@ -1576,6 +1571,11 @@ void setMeasurementMaxPeriod() {
   measurements.maxPeriod(Measurements::PM10_PC, max);
 
   // Temperature and Humidity
+max = calculateMaxPeriod(SENSOR_TEMP_HUM_UPDATE_INTERVAL);
+measurements.maxPeriod(Measurements::BME280Temperature, max);
+measurements.maxPeriod(Measurements::BME280Humidity, max);
+measurements.maxPeriod(Measurements::BME280Pressure, max);
+  
   if (configuration.hasSensorSHT) {
     /// Max period for SHT sensors measurements
     measurements.maxPeriod(Measurements::Temperature,
