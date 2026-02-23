@@ -23,6 +23,8 @@
 #define INVALID_NOX           (-1)
 #define INVALID_VOC           (-1)
 
+#define INVALID_PRESSURE      (-10000.0f)
+
 utils::utils(/* args */) {}
 
 utils::~utils() {}
@@ -76,6 +78,10 @@ bool utils::isValidVOC(int value) {
   return false;
 }
 
+bool utils::isValidPressure(float value) {
+  return value != INVALID_PRESSURE;
+}
+
 float utils::getInvalidTemperature(void) { return INVALID_TEMPERATURE; }
 
 float utils::getInvalidHumidity(void) { return INVALID_HUMIDITY; }
@@ -87,6 +93,8 @@ int utils::getInvalidPmValue(void) { return INVALID_PMS; }
 int utils::getInvalidNOx(void) { return INVALID_NOX; }
 
 int utils::getInvalidVOC(void) { return INVALID_VOC; }
+
+float utils::getInvalidPressure(void) { return INVALID_PRESSURE; }
 
 float utils::degreeC_To_F(float t) {
   /** (t * 9)/5 + 32 */
