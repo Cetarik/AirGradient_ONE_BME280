@@ -1,3 +1,5 @@
+**WORK IN PROGRESS**
+
 AirGradient Arduino Library for ESP8266 (Wemos D1 MINI) and ESP32 (ESP32-C3 Mini)
 =====================================================================================================
 
@@ -13,6 +15,7 @@ This library supports the following sensor modules:
 - SenseAir S8
 - Sensirion SGP41
 - Sensirion SHT40
+- Adafruit BME280
 
 ## Important information
 
