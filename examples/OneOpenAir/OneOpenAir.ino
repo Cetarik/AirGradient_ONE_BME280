@@ -127,6 +127,7 @@ static int lastCellSignalQuality = 99; // CSQ
 static Adafruit_BME280 bme280;
 static Adafruit_BME280 bme280Probe77;
 static bool hasBme280 = false;
+static Adafruit_BME280* activeBme280 = nullptr;
 
 // Default value is 0, indicate its not started yet
 // In minutes
@@ -574,11 +575,14 @@ static bool bme280Init(void) {
   bool ok76 = bme280.begin(0x76, &Wire);
   Serial.printf("BME280 begin(0x76): %s\n", ok76 ? "OK" : "FAIL");
 
-  // Requirement: try 0x77 too and print result
   bool ok77 = bme280Probe77.begin(0x77, &Wire);
   Serial.printf("BME280 begin(0x77): %s\n", ok77 ? "OK" : "FAIL");
 
-  hasBme280 = ok76;
+  if (ok76) activeBme280 = &bme280;
+  else if (ok77) activeBme280 = &bme280Probe77;
+  else activeBme280 = nullptr;
+
+  hasBme280 = (activeBme280 != nullptr);
   measurements.setHasBME280(hasBme280);
 
   return hasBme280;
@@ -1255,6 +1259,34 @@ static void updateDisplayAndLedBar(void) {
 
   stateMachine.displayHandle(state);
   stateMachine.handleLeds(state);
+}
+
+static void bme280Update(void) {
+  if (!hasBme280 || activeBme280 == nullptr) return;
+
+  // BME280 umí teplotu, vlhkost, tlak
+  float t = activeBme280->readTemperature();       // °C
+  float h = activeBme280->readHumidity();          // %RH
+  float p = activeBme280->readPressure() / 100.0f; // hPa
+
+  // Základní sanity check (aby ses nezahltil nesmysly při odpojení)
+  if (isnan(t) || isnan(h) || isnan(p)) {
+    Serial.println("BME280 read failed");
+    return;
+  }
+
+  // Tady záleží, jaké enumy má tvůj Measurements.
+  // Pokud máš jen Temperature/Humidity, update jen ty:
+  measurements.update(Measurements::Temperature, t);
+  measurements.update(Measurements::Humidity, h);
+
+  // Pokud máš v Measurements i tlak, můžeš přidat (jen pokud existuje!):
+  // measurements.update(Measurements::Pressure, p);
+
+  // A pokud chceš, můžeš tím i kompenzovat SGP41:
+  if (configuration.hasSensorSGP) {
+    ag->sgp41.setCompensationTemperatureHumidity(t, h);
+  }
 }
 
 static void updateTvoc(void) {
