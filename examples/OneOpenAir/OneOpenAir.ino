@@ -129,6 +129,20 @@ static Adafruit_BME280 bme280Probe77;
 static bool hasBme280 = false;
 static Adafruit_BME280* activeBme280 = nullptr;
 
+// ---- BME280 outlier filter (outdoor, 1 sample per minute) ----
+// Rozsahy (BME280 + atmosféricky smysluplné meze)
+#define BME280_MIN_TEMP_C   (-40.0f)
+#define BME280_MAX_TEMP_C   ( 85.0f)
+#define BME280_MIN_RH       (  0.0f)
+#define BME280_MAX_RH       (100.0f)
+#define BME280_MIN_HPA      (300.0f)
+#define BME280_MAX_HPA      (1100.0f)
+
+// Max. "reálná" změna mezi dvěma sousedními minutami (exteriér)
+#define BME280_MAX_DT_PER_MIN_C     (2.0f)   // °C / min
+#define BME280_MAX_DH_PER_MIN_RH    (20.0f)  // %RH / min
+#define BME280_MAX_DP_PER_MIN_HPA   (2.0f)   // hPa / min
+
 // Default value is 0, indicate its not started yet
 // In minutes
 uint32_t agCeClientProblemDetectedTime = 0;
@@ -1264,19 +1278,60 @@ static void updateDisplayAndLedBar(void) {
 static void bme280Update(void) {
   if (!hasBme280 || activeBme280 == nullptr) return;
 
+  // Paměť poslední "dobré" hodnoty (pro kontrolu skoků)
+  static bool hasLastGood = false;
+  static float lastT = NAN, lastH = NAN, lastP = NAN;
+
   float t = activeBme280->readTemperature();       // °C
   float h = activeBme280->readHumidity();          // %RH
   float p = activeBme280->readPressure() / 100.0f; // hPa
 
+  // 1) Drop NaN
   if (isnan(t) || isnan(h) || isnan(p)) {
-    Serial.println("BME280 read failed");
+    Serial.println("BME280 read failed (NaN) -> drop");
     return;
   }
 
-  // NOVĚ: paralelní hodnoty (NEpřepisují původní Temperature/Humidity)
+  // 2) Drop hodnoty mimo smysluplné rozsahy
+  if (t < BME280_MIN_TEMP_C || t > BME280_MAX_TEMP_C) {
+    Serial.printf("BME280 outlier (T range): %.2f C -> drop\n", t);
+    return;
+  }
+  if (h < BME280_MIN_RH || h > BME280_MAX_RH) {
+    Serial.printf("BME280 outlier (RH range): %.2f %% -> drop\n", h);
+    return;
+  }
+  if (p < BME280_MIN_HPA || p > BME280_MAX_HPA) {
+    Serial.printf("BME280 outlier (P range): %.2f hPa -> drop\n", p);
+    return;
+  }
+
+  // 3) Drop nerealné skoky oproti poslední dobré hodnotě (1× za minutu)
+  if (hasLastGood) {
+    if (fabsf(t - lastT) > BME280_MAX_DT_PER_MIN_C) {
+      Serial.printf("BME280 outlier (dT): t=%.2f last=%.2f -> drop\n", t, lastT);
+      return;
+    }
+    if (fabsf(h - lastH) > BME280_MAX_DH_PER_MIN_RH) {
+      Serial.printf("BME280 outlier (dRH): h=%.2f last=%.2f -> drop\n", h, lastH);
+      return;
+    }
+    if (fabsf(p - lastP) > BME280_MAX_DP_PER_MIN_HPA) {
+      Serial.printf("BME280 outlier (dP): p=%.2f last=%.2f -> drop\n", p, lastP);
+      return;
+    }
+  }
+
+  // OK -> uložit (paralelní hodnoty, NEpřepisují původní Temperature/Humidity)
   measurements.update(Measurements::BME280Temperature, t);
   measurements.update(Measurements::BME280Humidity, h);
   measurements.update(Measurements::BME280Pressure, p);
+
+  // Uložit jako poslední dobrou hodnotu pro další kontrolu skoku
+  lastT = t;
+  lastH = h;
+  lastP = p;
+  hasLastGood = true;
 
   // Kompenzace SGP41 může pořád používat BME, to nevadí:
   if (configuration.hasSensorSGP) {
